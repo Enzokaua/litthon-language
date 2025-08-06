@@ -60,7 +60,10 @@ class LitthonLogic(gramaticLitthonVisitor):
         return ctx.BOOLTOKEN().getText() == '<TRUE>'
 
     def visitNumber(self, ctx: gramaticLitthonParser.NumberContext):
-        return int(ctx.NUMBERSREGEX().getText())
+        if "." in ctx.NUMBERSREGEX().getText():
+            return float(ctx.NUMBERSREGEX().getText())
+        else:
+            return int(ctx.NUMBERSREGEX().getText())
 
     def visitFindInArray(self, ctx: gramaticLitthonParser.FindInArrayContext):
         var_name = ctx.VARREGEX().getText()
