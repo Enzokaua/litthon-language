@@ -79,11 +79,6 @@ class gramaticLitthonVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by gramaticLitthonParser#COMMENTTOKEN.
-    def visitCOMMENTTOKEN(self, ctx:gramaticLitthonParser.COMMENTTOKENContext):
-        return self.visitChildren(ctx)
-
-
     # Visit a parse tree produced by gramaticLitthonParser#String.
     def visitString(self, ctx:gramaticLitthonParser.StringContext):
         return self.visitChildren(ctx)
@@ -154,13 +149,33 @@ class gramaticLitthonVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by gramaticLitthonParser#add_.
-    def visitAdd_(self, ctx:gramaticLitthonParser.Add_Context):
+    # Visit a parse tree produced by gramaticLitthonParser#ArrayAccess.
+    def visitArrayAccess(self, ctx:gramaticLitthonParser.ArrayAccessContext):
         return self.visitChildren(ctx)
 
 
-    # Visit a parse tree produced by gramaticLitthonParser#remove_.
-    def visitRemove_(self, ctx:gramaticLitthonParser.Remove_Context):
+    # Visit a parse tree produced by gramaticLitthonParser#ArrayCreation.
+    def visitArrayCreation(self, ctx:gramaticLitthonParser.ArrayCreationContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramaticLitthonParser#ArrayAdd.
+    def visitArrayAdd(self, ctx:gramaticLitthonParser.ArrayAddContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramaticLitthonParser#ArrayRemove.
+    def visitArrayRemove(self, ctx:gramaticLitthonParser.ArrayRemoveContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramaticLitthonParser#AddToArray.
+    def visitAddToArray(self, ctx:gramaticLitthonParser.AddToArrayContext):
+        return self.visitChildren(ctx)
+
+
+    # Visit a parse tree produced by gramaticLitthonParser#RemoveFromArray.
+    def visitRemoveFromArray(self, ctx:gramaticLitthonParser.RemoveFromArrayContext):
         return self.visitChildren(ctx)
 
 
@@ -201,11 +216,6 @@ class gramaticLitthonVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by gramaticLitthonParser#find.
     def visitFind(self, ctx:gramaticLitthonParser.FindContext):
-        return self.visitChildren(ctx)
-
-
-    # Visit a parse tree produced by gramaticLitthonParser#array.
-    def visitArray(self, ctx:gramaticLitthonParser.ArrayContext):
         return self.visitChildren(ctx)
 
 

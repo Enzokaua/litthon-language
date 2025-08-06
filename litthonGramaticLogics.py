@@ -2,9 +2,10 @@ from gramaticLitthonParser import gramaticLitthonParser
 from gramaticLitthonVisitor import gramaticLitthonVisitor
 from ExceptionMainClass import MainException
 
+
 class LitthonLogic(gramaticLitthonVisitor):
 
-    def __init__(self, entryProcediments = 'MainClass', entryParams = []):
+    def __init__(self, entryProcediments='MainClass', entryParams=[]):
         self.entryProcediments = entryProcediments
         self.entryParams = entryParams
         self.procs = {}
@@ -12,12 +13,13 @@ class LitthonLogic(gramaticLitthonVisitor):
         self.myvars = {}
 
     def __proc__(self, name, paramsValue):
-        if len(self.procs[name])!= len(paramsValue):
+        if len(self.procs[name]) != len(paramsValue):
             raise MainException('Error procedure: ' + self.message)
 
     def visitRoot(self, ctx: gramaticLitthonParser.RootContext):
         for child in ctx.getChildren():
-            self.visit(child)
+            if isinstance(child, gramaticLitthonParser.DefinitionProcedureContext):
+                self.visit(child)
         if self.entryProcediments in self.procs:
             formal_params, body = self.procs[self.entryProcediments]
             if len(formal_params) != len(self.entryParams):
@@ -32,28 +34,26 @@ class LitthonLogic(gramaticLitthonVisitor):
 
     def visitDivision(self, ctx: gramaticLitthonParser.DivisionContext):
         if ctx.DIVISIONTOKEN():
-            return self.visit(ctx.expr(0)) / self.visit(ctx.expr(1))
+            return self.visit(ctx.expressions(0)) / self.visit(ctx.expressions(1))
         return None
 
     def visitSubtraction(self, ctx: gramaticLitthonParser.SubtractionContext):
         if ctx.LESSTOKEN():
-            return self.visit(ctx.expr(0)) - self.visit(ctx.expr(1))
+            return self.visit(ctx.expressions(0)) - self.visit(ctx.expressions(1))
         return None
 
     def visitMore(self, ctx: gramaticLitthonParser.MoreContext):
         if ctx.PLUSTOKEN():
-            if isinstance(self.visit(ctx.expr(0)), int) and isinstance(self.visit(ctx.expr(1)), int):
-                return self.visit(ctx.expr(0)) + self.visit(ctx.expr(1))
-            if isinstance(self.visit(ctx.expr(0)), str) and isinstance(self.visit(ctx.expr(1)), str):
-                return str(self.visit(ctx.expr(0))) + str(self.visit(ctx.expr(1)))
+            left = self.visit(ctx.expressions(0))
+            right = self.visit(ctx.expressions(1))
+            if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                return left + right
+            return str(left) + str(right)
         return None
 
     def visitMultiplication(self, ctx: gramaticLitthonParser.MultiplicationContext):
         if ctx.MULTTOKEN():
-            return self.visit(ctx.expr(0)) * self.visit(ctx.expr(1))
-        return None
-
-    def visitCOMMENTTOKEN(self, ctx: gramaticLitthonParser.COMMENTTOKENContext):
+            return self.visit(ctx.expressions(0)) * self.visit(ctx.expressions(1))
         return None
 
     def visitBoolean(self, ctx: gramaticLitthonParser.BooleanContext):
@@ -62,11 +62,18 @@ class LitthonLogic(gramaticLitthonVisitor):
     def visitNumber(self, ctx: gramaticLitthonParser.NumberContext):
         return int(ctx.NUMBERSREGEX().getText())
 
-    def visitFind(self, ctx: gramaticLitthonParser.FindContext):
-        return self.myvars.get(ctx.VARREGEX().getText(), [])[self.visit(ctx.expressions())]
+    def visitFindInArray(self, ctx: gramaticLitthonParser.FindInArrayContext):
+        var_name = ctx.VARREGEX().getText()
+        index = self.visit(ctx.expressions())
+        if var_name in self.myvars and isinstance(self.myvars[var_name], list) and index < len(self.myvars[var_name]):
+            return self.myvars[var_name][index]
+        return None
 
     def visitSizing(self, ctx: gramaticLitthonParser.SizingContext):
-        return len(self.myvars.get(ctx.VARREGEX().getText(), []))
+        var_name = ctx.VARREGEX().getText()
+        if var_name in self.myvars and isinstance(self.myvars[var_name], list):
+            return len(self.myvars[var_name])
+        return 0
 
     def visitIdExpr(self, ctx: gramaticLitthonParser.IdExprContext):
         return [self.visit(e) for e in ctx.expressions()]
@@ -74,27 +81,41 @@ class LitthonLogic(gramaticLitthonVisitor):
     def visitIdVars(self, ctx: gramaticLitthonParser.IdVarsContext):
         return [v.getText() for v in ctx.VARREGEX()]
 
-    def visitSystemInConsole(self, ctx:gramaticLitthonParser.SystemIn_Context):
-        self.myvars[ctx.VARREGEX().getText()] = input(f'{ctx.VARREGEX().getText()} : ')
-        return ctx.VARREGEX().getText()
+    def visitSystemInConsole(self, ctx: gramaticLitthonParser.SystemInConsoleContext):
+        var_name = ctx.systemIn_().VARREGEX().getText()
+        self.myvars[var_name] = input(f'{var_name} : ')
+        return self.myvars[var_name]
 
     def visitCompare(self, ctx: gramaticLitthonParser.CompareContext):
-        if ctx.COMPARETOKEN().getText() == ':==:': return self.visit(ctx.expressions(0)) == self.visit(ctx.expressions(1))
-        if ctx.COMPARETOKEN().getText() == ':!=:': return self.visit(ctx.expressions(0)) != self.visit(ctx.expressions(1))
-        if ctx.COMPARETOKEN().getText() == ':>:': return self.visit(ctx.expressions(0)) > self.visit(ctx.expressions(1))
-        if ctx.COMPARETOKEN().getText() == ':<:': return self.visit(ctx.expressions(0)) < self.visit(ctx.expressions(1))
-        if ctx.COMPARETOKEN().getText() == ':>=:': return self.visit(ctx.expressions(0)) >= self.visit(ctx.expressions(1))
-        if ctx.COMPARETOKEN().getText() == ':<=:': return self.visit(ctx.expressions(0)) <= self.visit(ctx.expressions(1))
+        left = self.visit(ctx.expressions(0))
+        right = self.visit(ctx.expressions(1))
+        op = ctx.COMPARETOKEN().getText()
+        if op == ':==:': return left == right
+        if op == ':!=:': return left != right
+        if op == ':>:': return left > right
+        if op == ':<:': return left < right
+        if op == ':>=:': return left >= right
+        if op == ':<=:': return left <= right
         return None
 
     def visitSizeValue(self, ctx: gramaticLitthonParser.SizeValueContext):
         return self.visitSizing(ctx)
 
-    def visitFindInArray(self, ctx: gramaticLitthonParser.FindInArrayContext):
-        return self.visitFind(ctx)
-
     def visitArrayType(self, ctx: gramaticLitthonParser.ArrayTypeContext):
-        return self.visitArray(ctx)
+        if ctx.VARREGEX():
+            var_name = ctx.VARREGEX().getText()
+            if var_name not in self.myvars:
+                self.myvars[var_name] = []
+            if ctx.expressions():
+                index = self.visit(ctx.expressions())
+                if index < len(self.myvars[var_name]):
+                    return self.myvars[var_name][index]
+                return None
+            return self.myvars[var_name]
+        elif ctx.expressions():
+            size = self.visit(ctx.expressions())
+            return [None] * size
+        return []
 
     def visitPotence(self, ctx: gramaticLitthonParser.PotenceContext):
         return self.visit(ctx.expressions(0)) ** self.visit(ctx.expressions(1))
@@ -109,39 +130,75 @@ class LitthonLogic(gramaticLitthonVisitor):
         return self.myvars.get(ctx.VARREGEX().getText())
 
     def visitRemoveArray(self, ctx: gramaticLitthonParser.RemoveArrayContext):
-        if ctx.VARREGEX().getText() in self.myvars and len(self.myvars[ctx.VARREGEX().getText()]) > self.visit(ctx.expressions()):
-            self.myvars[ctx.VARREGEX().getText()].pop(self.visit(ctx.expressions()))
+        var_name = ctx.VARREGEX().getText()
+        index = self.visit(ctx.expressions())
+        if var_name in self.myvars and isinstance(self.myvars[var_name], list) and index < len(self.myvars[var_name]):
+            return self.myvars[var_name].pop(index)
+        return None
 
-    def visitAddArray(self, ctx: gramaticLitthonParser.AddArrayContext):
-        if ctx.VARREGEX().getText() not in self.myvars:
-            self.myvars[ctx.VARREGEX().getText()] = []
-        self.myvars[ctx.VARREGEX().getText()].insert(self.visit(ctx.expressions()), None)
+    def visitArrayAdd(self, ctx: gramaticLitthonParser.ArrayAddContext):
+        var_name = ctx.VARREGEX().getText()
+        if var_name not in self.myvars:
+            self.myvars[var_name] = []
+        index = self.visit(ctx.expressions(0))
+        value = None
+        if ctx.getChildCount() > 3 and isinstance(ctx.getChild(3), gramaticLitthonParser.ExpressionsContext):
+            value = self.visit(ctx.getChild(3))
+        while len(self.myvars[var_name]) <= index:
+            self.myvars[var_name].append(None)
 
-    def visitTypeArray(self, ctx: gramaticLitthonParser.TypeArrayContext):
-        if ctx.VARREGEX().getText() not in self.myvars:
-            self.myvars[ctx.VARREGEX().getText()] = []
-        arr = self.myvars[ctx.VARREGEX().getText()]
-        if len(arr) <= self.visit(ctx.expressions()):
-            arr.extend([None] * (self.visit(ctx.expressions()) - len(arr) + 1))
-        return arr
+        self.myvars[var_name][index] = value
+        return value
+
+    def visitArrayRemove(self, ctx: gramaticLitthonParser.ArrayRemoveContext):
+        var_name = ctx.VARREGEX().getText()
+        if var_name in self.myvars and isinstance(self.myvars[var_name], list):
+            index = self.visit(ctx.expressions(0))
+            if index < len(self.myvars[var_name]):
+                return self.myvars[var_name].pop(index)
+        return None
 
     def visitAssumeAtributtion(self, ctx: gramaticLitthonParser.AssumeAtributtionContext):
-        self.myvars[ctx.VARREGEX().getText()] = self.visit(ctx.assume())
-        if isinstance(self.visit(ctx.assume()), int):
-            return int(self.visit(ctx.assume()))
-        else:
-            return self.visit(ctx.expr())
+        var_name = ctx.assume().VARREGEX().getText()
+        value = self.visit(ctx.assume().expressions())
+        self.myvars[var_name] = value
+        return value
 
     def visitSystemOutConsole(self, ctx: gramaticLitthonParser.SystemOutConsoleContext):
-        return self.visit(ctx.systemOut_())
+        results = []
+        for expr in ctx.systemOut_().expressions():
+            result = self.visit(expr)
+            results.append(str(result))
+        print(' '.join(results))
+        return None
+
+    def visitSystemOut_(self, ctx: gramaticLitthonParser.SystemOut_Context):
+        return [self.visit(expr) for expr in ctx.expressions()]
+
+    def visitExpressions(self, ctx: gramaticLitthonParser.ExpressionsContext):
+        if ctx.getChildCount() == 1:
+            return self.visit(ctx.getChild(0))
+        return None
+
+    def visitAddToArray(self, ctx: gramaticLitthonParser.AddToArrayContext):
+        var_name = ctx.VARREGEX().getText()
+        index = self.visit(ctx.expressions(0))
+        value = self.visit(ctx.expressions(1)) if ctx.expressions() and len(ctx.expressions()) > 1 else None
+        if var_name not in self.myvars:
+            self.myvars[var_name] = []
+        while len(self.myvars[var_name]) <= index:
+            self.myvars[var_name].append(None)
+        self.myvars[var_name][index] = value
+        return value
 
     def visitSistemInConsole(self, ctx: gramaticLitthonParser.SystemInConsoleContext):
-        self.myvars[ctx.VARREGEX().getText()] = input(f'{ctx.VARREGEX().getText()}:')
-        return input(f'{ctx.VARREGEX().getText()}:')
+        var_name = ctx.VARREGEX().getText()
+        self.myvars[var_name] = input(f'{var_name}:')
+        return self.myvars[var_name]
 
     def visitWhile(self, ctx: gramaticLitthonParser.WhileContext):
-        while self.visit(ctx.expressions()):
-            self.visit(ctx.instructions())
+        while self.visit(ctx.while_().expressions()):
+            self.visit(ctx.while_().instructions())
         return None
 
     def visitIfLogic(self, ctx: gramaticLitthonParser.IfLogicContext):
@@ -156,20 +213,32 @@ class LitthonLogic(gramaticLitthonVisitor):
             self.visit(instr)
 
     def visitDefinitionProcedure(self, ctx: gramaticLitthonParser.DefinitionProcedureContext):
-        self.procs[ctx.PROCEDURESREGEX().getText()] = (self.visit(ctx.idVars()), ctx.instructions())
+        proc_name = ctx.PROCEDURESREGEX().getText()
+        params = []
+        if ctx.idVars():
+            params = self.visit(ctx.idVars())
+        self.procs[proc_name] = (params, ctx.instructions())
+        return None
+
+    def visitArrayCreation(self, ctx: gramaticLitthonParser.ArrayCreationContext):
+        size = self.visit(ctx.expressions())
+        return [None] * size
 
     def visitInvokeProperty(self, ctx: gramaticLitthonParser.InvokePropertyContext):
-        if ctx.PROCEDURESREGEX().getText() not in self.procs:
-            raise MainException(f'Procedure {ctx.PROCEDURESREGEX().getText()} not defined.')
-        formal_params, body = self.procs[ctx.PROCEDURESREGEX().getText()]
-
-        if len(formal_params) != len(self.visit(ctx.idExpr())):
-            raise MainException('Error procedure: wrong number of params.')
-
+        invoke_ctx = ctx.invoke()
+        proc_name = invoke_ctx.PROCEDURESREGEX().getText()
+        if proc_name not in self.procs:
+            raise MainException(f'Procedure {proc_name} not defined.')
+        formal_params, body = self.procs[proc_name]
+        actual_params = []
+        if invoke_ctx.idExpr():
+            actual_params = self.visit(invoke_ctx.idExpr())
+        if len(formal_params) != len(actual_params):
+            raise MainException(
+                f'Error in procedure {proc_name}: expected {len(formal_params)} parameters, got {len(actual_params)}')
         old_vars = self.myvars.copy()
-        for f, a in zip(formal_params, self.visit(ctx.idExpr())):
-            self.myvars[f] = a
-
+        for param_name, param_value in zip(formal_params, actual_params):
+            self.myvars[param_name] = param_value
         result = self.visit(body)
         self.myvars = old_vars
         return result
